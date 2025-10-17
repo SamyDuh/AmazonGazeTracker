@@ -42,14 +42,54 @@ console.log("Amazon Gaze Tracker Extension Loaded");
             const element = document.elementFromPoint(x, y);
             if (!element) return null;
 
-            const faceout = element.closest("bds-unified-book-faceout");
-            if (!faceout || !faceout.shadowRoot) return null;
+            let faceout = 
+                element.closest('[data-component-type="s-search-result"][role="listitem"][data-asin]:not([data-asin=""])') ||
+                element.closest(".a-carousel-card") || // for carousels
+                element.closest("#ppd, #dp-container"); // product detail container
 
-            const faceoutShadow = faceout.shadowRoot;
+            if (!faceout) return null;
+
+            let title = "N/A", price = "N/A", rating = "N/A", image = "N/A", url = "N/A";
+
+            try{
+                // ---------- search result page ----------
+                if (faceout.matches('[data-component-type="s-search-result"]')) {
+                    title = faceout.querySelector("h2")?.textContent?.trim() || "N/A";
+                    price = faceout.querySelector(".a-price .a-offscreen")?.textContent?.trim() || "N/A";
+                    rating = faceout.querySelector(".a-icon-alt")?.textContent?.trim() || "N/A";
+                    image = faceout.querySelector("img.s-image")?.src || "N/A";
+                    const link = faceout.querySelector("h2 a");
+                    if (link) url = "https://www.amazon.com" + link.getAttribute("href");
+                }
+
+                // ---------- product detail page ----------
+                else if (faceout.matches("ppd, #dp-container")) {
+                    title = document.querySelector("#productTitle")?.textContent?.trim() || "N/A";
+                    price = document.querySelector("#priceblock_ourprice, #priceblock_dealprice")?.textContent?.trim() || "N/A";
+                    rating = document.querySelector("i.a-icon-star span.a-icon-alt")?.textContent?.trim() || "N/A";
+                    image = document.querySelector("#imgTagWrapperId img")?.src || "N/A";
+                    url = window.location.href;
+                }
+
+                // ---------- carousel ----------
+                else if (faceout.matches(".a-carousel-card")) {
+                    title = faceout.querySelector("h2")?.textContent?.trim() || "N/A";
+                    price = faceout.querySelector(".a-price .a-offscreen")?.textContent?.trim() || "N/A";
+                    rating = faceout.querySelector(".a-icon-alt")?.textContent?.trim() || "N/A";
+                    image = faceout.querySelector("img")?.src || "N/A";
+                    const link = faceout.querySelector("a[href*='/dp/']");
+                    if (link) url = link.href;
+                }
+            }
+            catch (e){
+                console.log("extraction error:", e);
+            }
+            //if (!faceout || !faceout.shadowRoot) return null;
+
+            //const faceoutShadow = faceout.shadowRoot;
 
             // ---------- Title ----------
-            let title = "N/A";
-            try {
+            /*try {
                 const titleComp = faceoutShadow.querySelector("bds-book-title-content");
                 const shadow1 = titleComp?.shadowRoot;
                 const bookTitleContent = shadow1?.querySelector("div.bookTitleContent");
@@ -60,35 +100,40 @@ console.log("Amazon Gaze Tracker Extension Loaded");
                     const h3 = await waitForElement("h3", a, 1000);
                     title = h3?.innerText?.trim() || "N/A";
                 }
+
+               title = faceout.querySelector('h2')?.textContent?.trim()
+               
+               if (title != "N/A") console.log(title);
+
             } catch (e) {
                 console.warn("Title extraction error:", e);
-            }
+            }*/
 
             // ---------- Price ----------
-            let price = "N/A";
-            try {
+            //let price = "N/A";
+            /*try {
                 const priceComponent = faceoutShadow.querySelector("bds-book-price");
                 const priceShadow = priceComponent?.shadowRoot;
                 const priceEl = priceShadow?.querySelector("span.offscreen");
                 if (priceEl) price = priceEl.innerText.trim();
             } catch (e) {
                 console.warn("Price extraction error:", e);
-            }
+            }*/
 
             // ---------- Rating ----------
-            let rating = "N/A";
-            try {
+            //let rating = "N/A";
+            /*try {
                 const ratingComponent = faceoutShadow.querySelector("bds-star-rating");
                 const ratingShadow = ratingComponent?.shadowRoot;
                 const ratingEl = ratingShadow?.querySelector("span.rating");
                 if (ratingEl) rating = ratingEl.innerText.trim();
             } catch (e) {
                 console.warn("Rating extraction error:", e);
-            }
+            }*/
 
             // ---------- Image ----------
-            let image = "N/A";
-            try {
+            //let image = "N/A";
+            /*try {
                 const imageComponent = faceoutShadow.querySelector("bds-book-cover-image");
                 const imageShadow = imageComponent?.shadowRoot;
                 const img = imageShadow?.querySelector("img.coverImage");
@@ -102,19 +147,19 @@ console.log("Amazon Gaze Tracker Extension Loaded");
                 }
             } catch (e) {
                 console.warn("Image extraction error:", e);
-            }
+            }*/
 
             // ---------- URL ----------
-            let url = "N/A";
-            try {
+            //let url = "N/A";
+            /*try {
                 const a = faceoutShadow.querySelector("a[href*='/dp/']");
                 const href = a?.getAttribute("href");
                 if (href) url = "https://www.amazon.com" + href;
             } catch (e) {
                 console.warn("URL extraction error:", e);
-            }
+            }*/
 
-            console.log("Extracted from Shadow DOM:");
+            console.log("Extracted product data:");
             console.log("Title:", title);
             console.log("Price:", price);
             console.log("Rating:", rating);
@@ -160,7 +205,13 @@ console.log("Amazon Gaze Tracker Extension Loaded");
             clearInterval(gazeCollectionInterval);
             console.log("Gaze tracking complete. Downloading data...");
             downloadCSV();
-        }, 600000);
+        }, 30000);
+
+        function escapeCSV(value){
+            if (value == null) return "";
+            const safe = String(value).replace(/"/g, '""');
+            return `"${safe}"`;
+        }
 
         function downloadCSV() {
             if (gazeData.length === 0) {
@@ -170,13 +221,20 @@ console.log("Amazon Gaze Tracker Extension Loaded");
 
             let csvContent = "x,y,timeElapsed,Title,Price,Rating,URL,Image\n";
             gazeData.forEach(row => {
-                csvContent += `${row.x},${row.y},${row.timeElapsed},"${row.title}","${row.price}","${row.rating}","${row.url}","${row.image}"\n`;
+                csvContent += [
+                    row.x, row.y, row.timeElapsed,
+                    escapeCSV(row.title),
+                    escapeCSV(row.price),
+                    escapeCSV(row.rating),
+                    escapeCSV(row.url),
+                    escapeCSV(row.image)
+                ].join(",") + "\n";
             });
 
-            const blob = new Blob([csvContent], { type: "text/csv" });
+            const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
             const link = document.createElement("a");
             link.href = URL.createObjectURL(blob);
-            link.download = "gaze_product_data.csv";
+            link.download = `gaze_product_data_${new Date().toISOString().slice(0, 10).replace(/[:T]/g, "-")}.csv`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
