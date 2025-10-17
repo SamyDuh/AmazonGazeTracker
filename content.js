@@ -45,6 +45,7 @@ console.log("Amazon Gaze Tracker Extension Loaded");
             let faceout = 
                 element.closest('[data-component-type="s-search-result"][role="listitem"][data-asin]:not([data-asin=""])') ||
                 element.closest(".a-carousel-card") || // for carousels
+                element.closest('bds-unified-book-faceout[data-csa-c-item-type="asin"]') // for childrens' books
                 element.closest("#ppd, #dp-container"); // product detail container
 
             if (!faceout) return null;
@@ -71,15 +72,28 @@ console.log("Amazon Gaze Tracker Extension Loaded");
                     url = window.location.href;
                 }
 
+                // ---------- children's book page ----------
+                else if (faceout.matches('bds-unified-book-faceout[data-csa-c-item-type="asin"]')) {
+                    const faceShadow = faceout.shadowRoot; //gets shadowroot of bds-unified-book-faceout
+                    title = faceShadow.querySelector('[aria-label]')?.getAttribute('aria-label') || 'N/A';
+                    price = faceShadow.querySelector('bds-book-price')?.shadowRoot?.querySelector('.price-format-parts-wrapper')?.textContent?.replace(/\s+/g,'') || "N/A";
+                    rating = faceShadow.querySelector('bds-star-rating')?.getAttribute('shortdisplaystring') || "N/A";
+                    image = faceShadow.querySelector('bds-book-cover-image')?.shadowRoot?.querySelector('source[type="image/jpeg"]')
+                    ?.getAttribute('srcset')?.split(',')[0].trim().split(/\s+/)[0] || "N/A"; //strips the srcset to only include the first field (the first src)
+                    const href = faceShadow.querySelector("a")?.getAttribute('href');
+                    if (href) url = "https://www.amazon.com" + href;
+
+                }
                 // ---------- carousel ----------
                 else if (faceout.matches(".a-carousel-card")) {
                     title = faceout.querySelector("h2")?.textContent?.trim() || "N/A";
                     price = faceout.querySelector(".a-price .a-offscreen")?.textContent?.trim() || "N/A";
                     rating = faceout.querySelector(".a-icon-alt")?.textContent?.trim() || "N/A";
                     image = faceout.querySelector("img")?.src || "N/A";
-                    const link = faceout.querySelector("a[href*='/dp/']");
+                    const link = faceout.querySelector("a");
                     if (link) url = link.href;
                 }
+
             }
             catch (e){
                 console.log("extraction error:", e);
