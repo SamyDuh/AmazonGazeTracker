@@ -1,5 +1,9 @@
 console.log("Amazon Gaze Tracker Extension Loaded");
 
+//const testTime = chrome.storage.sync.get({ selection }) || 300000;
+
+//console.log(testTime);
+
 (async function () {
     console.log("Initializing SearchGazer...");
 
@@ -45,6 +49,7 @@ console.log("Amazon Gaze Tracker Extension Loaded");
             let faceout = 
                 element.closest('[data-component-type="s-search-result"][role="listitem"][data-asin]:not([data-asin=""])') ||
                 element.closest(".a-carousel-card") || // for carousels
+                element.closest(".feed-carousel-card") // for home screen feed
                 element.closest('bds-unified-book-faceout[data-csa-c-item-type="asin"]') // for childrens' books
                 element.closest("#ppd, #dp-container"); // product detail container
 
@@ -81,17 +86,33 @@ console.log("Amazon Gaze Tracker Extension Loaded");
                     image = faceShadow.querySelector('bds-book-cover-image')?.shadowRoot?.querySelector('source[type="image/jpeg"]')
                     ?.getAttribute('srcset')?.split(',')[0].trim().split(/\s+/)[0] || "N/A"; //strips the srcset to only include the first field (the first src)
                     const href = faceShadow.querySelector("a")?.getAttribute('href');
-                    if (href) url = "https://www.amazon.com" + href;
+                    if (href) url = "https://www.amazon.com" + href; //puts together the whole amazon link if an href was found
 
                 }
                 // ---------- carousel ----------
                 else if (faceout.matches(".a-carousel-card")) {
-                    title = faceout.querySelector("h2")?.textContent?.trim() || "N/A";
+                    title = faceout.querySelector("h2")?.textContent?.trim() ||
+                            faceout.querySelector('div[role="heading"]')?.querySelector("a")?.getAttribute('title') ||
+                            faceout.querySelector(".a-link-normal")?.textContent ||
+                            "N/A";
                     price = faceout.querySelector(".a-price .a-offscreen")?.textContent?.trim() || "N/A";
-                    rating = faceout.querySelector(".a-icon-alt")?.textContent?.trim() || "N/A";
+                    rating = faceout.querySelector(".a-icon-alt")?.textContent?.trim() || 
+                            faceout.querySelector("div")?.querySelector(".a-row")?.querySelector("a")?.getAttribute('aria-label') ||
+                            "N/A";
                     image = faceout.querySelector("img")?.src || "N/A";
-                    const link = faceout.querySelector("a");
+                    const link = faceout.querySelector('div[role="heading"]')?.querySelector("a")?.getAttribute('href') ||
+                                faceout.querySelector("a");
                     if (link) url = link.href;
+                    else url = "N/A";
+                }
+                // ---------- home page carousel ----------
+                else if (faceout.matches(".feed-carousel-card")) {
+                    title = faceout.querySelector("img")?.getAttribute('alt') || "N/A";
+                    price = "N/A"; // home page does not contain price information
+                    rating = "N/A"; // home page does not contain ratings
+                    image = faceout.querySelector("a")?.querySelector("img")?.src || "N/A";
+                    const href = faceout.querySelector("a")?.getAttribute('href');
+                    if (href) url = "https://www.amazon.com" + href;
                 }
 
             }
