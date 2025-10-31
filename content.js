@@ -1,5 +1,9 @@
 console.log("Amazon Gaze Tracker Extension Loaded");
 
+//const testTime = chrome.storage.sync.get({ selection }) || 300000;
+
+//console.log(testTime);
+
 (async function () {
     console.log("Initializing SearchGazer...");
 
@@ -45,9 +49,11 @@ console.log("Amazon Gaze Tracker Extension Loaded");
             let faceout = 
                 element.closest('[data-component-type="s-search-result"][role="listitem"][data-asin]:not([data-asin=""])') ||
                 element.closest(".a-carousel-card") || // for carousels
+                element.closest(".feed-carousel-card") // for home screen feed
+                element.closest('bds-unified-book-faceout[data-csa-c-item-type="asin"]') || // for childrens' books
                 element.closest(".p13n-sc-uncoverable-faceout") || // recommended items
                 element.closest(".p13n-desktop-sims-fbt") || // frequently bought together
-                element.closest(".p13n-desktop-carousel") || //also viewed
+                element.closest(".p13n-desktop-carousel") || // also viewed
                 element.closest("#ppd, #dp-container"); // product detail container
 
             if (!faceout) return null;
@@ -66,7 +72,7 @@ console.log("Amazon Gaze Tracker Extension Loaded");
                 }
 
                 // ---------- product detail page ----------
-                else if (faceout.matches("ppd, #dp-container")) {
+                else if (faceout.matches("#ppd, #dp-container")) {
                     title = document.querySelector("#productTitle")?.textContent?.trim() || "N/A";
                     price = document.querySelector("#priceblock_ourprice, #priceblock_dealprice")?.textContent?.trim() || "N/A";
                     rating = document.querySelector("i.a-icon-star span.a-icon-alt")?.textContent?.trim() || "N/A";
@@ -74,17 +80,45 @@ console.log("Amazon Gaze Tracker Extension Loaded");
                     url = window.location.href;
                 }
 
+                // ---------- children's book page ----------
+                else if (faceout.matches('bds-unified-book-faceout[data-csa-c-item-type="asin"]')) {
+                    const faceShadow = faceout.shadowRoot; //gets shadowroot of bds-unified-book-faceout
+                    title = faceShadow.querySelector('[aria-label]')?.getAttribute('aria-label') || 'N/A';
+                    price = faceShadow.querySelector('bds-book-price')?.shadowRoot?.querySelector('.price-format-parts-wrapper')?.textContent?.replace(/\s+/g,'') || "N/A";
+                    rating = faceShadow.querySelector('bds-star-rating')?.getAttribute('shortdisplaystring') || "N/A";
+                    image = faceShadow.querySelector('bds-book-cover-image')?.shadowRoot?.querySelector('source[type="image/jpeg"]')
+                    ?.getAttribute('srcset')?.split(',')[0].trim().split(/\s+/)[0] || "N/A"; //strips the srcset to only include the first field (the first src)
+                    const href = faceShadow.querySelector("a")?.getAttribute('href');
+                    if (href) url = "https://www.amazon.com" + href; //puts together the whole amazon link if an href was found
+
+                }
                 // ---------- carousel ----------
                 else if (faceout.matches(".a-carousel-card")) {
-                    title = faceout.querySelector("h2")?.textContent?.trim() || "N/A";
+                    title = faceout.querySelector("h2")?.textContent?.trim() ||
+                            faceout.querySelector('div[role="heading"]')?.querySelector("a")?.getAttribute('title') ||
+                            faceout.querySelector(".a-link-normal")?.textContent ||
+                            "N/A";
                     price = faceout.querySelector(".a-price .a-offscreen")?.textContent?.trim() || "N/A";
-                    rating = faceout.querySelector(".a-icon-alt")?.textContent?.trim() || "N/A";
+                    rating = faceout.querySelector(".a-icon-alt")?.textContent?.trim() || 
+                            faceout.querySelector("div")?.querySelector(".a-row")?.querySelector("a")?.getAttribute('aria-label') ||
+                            "N/A";
                     image = faceout.querySelector("img")?.src || "N/A";
-                    const link = faceout.querySelector("a[href*='/dp/']");
+                    const link = faceout.querySelector('div[role="heading"]')?.querySelector("a")?.getAttribute('href') ||
+                                faceout.querySelector("a");
                     if (link) url = link.href;
+                    else url = "N/A";
+                }
+                // ---------- home page carousel ----------
+                else if (faceout.matches(".feed-carousel-card")) {
+                    title = faceout.querySelector("img")?.getAttribute('alt') || "N/A";
+                    price = "N/A"; // home page does not contain price information
+                    rating = "N/A"; // home page does not contain ratings
+                    image = faceout.querySelector("a")?.querySelector("img")?.src || "N/A";
+                    const href = faceout.querySelector("a")?.getAttribute('href');
+                    if (href) url = "https://www.amazon.com" + href;
                 }
 
-                // recommended products
+                // ---------- recommended products ----------
                 else if(faceout.matches(".p13n-sc-uncoverable-faceout, .p13n-desktop-carousel, .p13n-desktop-sims-fbt")){
                     title = faceout.querySelector("img")?.alt ||
                             faceout.querySelector("h2, .a-size-base, .a-size-medium")?.textContent?.trim()|| "N/A";
@@ -101,6 +135,7 @@ console.log("Amazon Gaze Tracker Extension Loaded");
                     const asin = faceout.getAttribute("data-asin");
                     if (asin) title = "ASIN: " +asin;
                 }
+
             }
             catch (e){
                 console.log("extraction error:", e);
@@ -190,33 +225,9 @@ console.log("Amazon Gaze Tracker Extension Loaded");
             return { title, price, rating, image, url };
         }
 
+        // allows the dynamically added products to be observed
         const observer = new MutationObserver(()=>{
             console.log("new recommended products loaded");
-            /*document.querySelectorAll('.p13n-sc-uncoverable-faceout').forEach(el =>{
-                console.log("detected recommended product: ", el.querySelector("img")?.alt || "unnamed item");
-            })
-           const recs = document.querySelectorAll(".p13n-sc-uncoverable-faceout, .p13n-desktop-carousel, .p13n-desktop-sims-fbt");
-
-           recs.forEach(faceout =>{
-            const title = faceout.querySelector("img")?.alt ||
-                            faceout.querySelector("h2, .a-size-base, .a-size-medium")?.textContent?.trim()|| "N/A";
-            const price = faceout.querySelector(".a-price .a-offscreen")?.textContent?.trim() || "N/A";
-            const rating = faceout.querySelector(".a-icon-alt")?.textContent?.trim() || "N/A";
-            const image = faceout.querySelector("img")?.src || "N/A";
-            const link = faceout.querySelector("a[href*='/dp/']")?.href || "N/A";
-
-            gazeData.push({
-                x: "N/A",
-                y: "N/A",
-                timeElapsed: performance.now().toFixed(2),
-                title, 
-                price, 
-                rating, 
-                url: link,
-                image
-            });
-            console.log("added recommended product: "+ title);
-           });*/
         });
         observer.observe(document.body, {childList: true, subtree: true});
 
