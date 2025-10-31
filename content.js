@@ -49,7 +49,7 @@ console.log("Amazon Gaze Tracker Extension Loaded");
             let faceout = 
                 element.closest('[data-component-type="s-search-result"][role="listitem"][data-asin]:not([data-asin=""])') ||
                 element.closest(".a-carousel-card") || // for carousels
-                element.closest(".feed-carousel-card") // for home screen feed
+                element.closest(".feed-carousel-card") ||// for home screen feed
                 element.closest('bds-unified-book-faceout[data-csa-c-item-type="asin"]') || // for childrens' books
                 element.closest(".p13n-sc-uncoverable-faceout") || // recommended items
                 element.closest(".p13n-desktop-sims-fbt") || // frequently bought together
@@ -74,7 +74,7 @@ console.log("Amazon Gaze Tracker Extension Loaded");
                 // ---------- product detail page ----------
                 else if (faceout.matches("#ppd, #dp-container")) {
                     title = document.querySelector("#productTitle")?.textContent?.trim() || "N/A";
-                    price = document.querySelector("#priceblock_ourprice, #priceblock_dealprice")?.textContent?.trim() || "N/A";
+                    price = document.querySelector("#corePrice_feature_div .a-price .a-offscreen")?.textContent?.trim() || "N/A";
                     rating = document.querySelector("i.a-icon-star span.a-icon-alt")?.textContent?.trim() || "N/A";
                     image = document.querySelector("#imgTagWrapperId img")?.src || "N/A";
                     url = window.location.href;
@@ -96,17 +96,17 @@ console.log("Amazon Gaze Tracker Extension Loaded");
                 else if (faceout.matches(".a-carousel-card")) {
                     title = faceout.querySelector("h2")?.textContent?.trim() ||
                             faceout.querySelector('div[role="heading"]')?.querySelector("a")?.getAttribute('title') ||
-                            faceout.querySelector(".a-link-normal")?.textContent ||
+                            faceout.querySelector('.sponsored-products-truncator-afo-4, .sponsored-products-truncator-truncated, [data-rows][aria-hidden="true"]')?.textContent?.trim() ||
+                            faceout.querySelector('img[alt]')?.getAttribute('alt') ||
                             "N/A";
                     price = faceout.querySelector(".a-price .a-offscreen")?.textContent?.trim() || "N/A";
                     rating = faceout.querySelector(".a-icon-alt")?.textContent?.trim() || 
-                            faceout.querySelector("div")?.querySelector(".a-row")?.querySelector("a")?.getAttribute('aria-label') ||
+                            faceout.querySelector('a[aria-label*="out of 5 stars"]')?.getAttribute('aria-label') ||
                             "N/A";
                     image = faceout.querySelector("img")?.src || "N/A";
-                    const link = faceout.querySelector('div[role="heading"]')?.querySelector("a")?.getAttribute('href') ||
-                                faceout.querySelector("a");
-                    if (link) url = link.href;
-                    else url = "N/A";
+                    url = ([...faceout.querySelectorAll('a[href]')].find(a => !a.getAttribute('href')?.startsWith('javascript') && (/\/dp\/|\/gp\/|\/sspa\/click/.test(a.getAttribute('href'))))?.href) || 
+                    "N/A";
+                    //else url = "N/A";
                 }
                 // ---------- home page carousel ----------
                 else if (faceout.matches(".feed-carousel-card")) {
