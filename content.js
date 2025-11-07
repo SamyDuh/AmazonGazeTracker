@@ -67,7 +67,9 @@ console.log("Amazon Gaze Tracker Extension Loaded");
                     price = faceout.querySelector(".a-price .a-offscreen")?.textContent?.trim() || "N/A";
                     rating = faceout.querySelector(".a-icon-alt")?.textContent?.trim() || "N/A";
                     image = faceout.querySelector("img.s-image")?.src || "N/A";
-                    const link = faceout.querySelector("h2 a");
+                    const link = faceout.querySelector("h2 a") ||
+                                faceout.querySelector('a.a-link-normal[href*="/dp/"]') ||
+                                faceout.querySelector('a[href*="/dp/"]');
                     if (link) url = "https://www.amazon.com" + link.getAttribute("href");
                 }
 
