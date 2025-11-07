@@ -1,3 +1,6 @@
+
+import EyeGestures from 'eyegestures';
+
 console.log("Amazon Gaze Tracker Extension Loaded");
 
 //const testTime = chrome.storage.sync.get({ selection }) || 300000;
@@ -5,24 +8,38 @@ console.log("Amazon Gaze Tracker Extension Loaded");
 //console.log(testTime);
 
 (async function () {
-    console.log("Initializing SearchGazer...");
+    // console.log("Initializing SearchGazer...");
+    // const script = document.createElement('script');
+    // script.src = chrome.runtime.getURL('searchgazer.js');
+    // document.head.appendChild(script);
+    // script.onload = function () {
+    //     console.log("SearchGazer Loaded. Initializing...");
+    //     webgazer.setTracker('TFFacemesh')
+    //         .setRegression('ridge')
+    //         .showVideoPreview(true)
+    //         .showFaceOverlay(true)
+    //         .showFaceFeedbackBox(true)
+    //         .showPredictionPoints(true)
+    //         .begin();
 
-    const script = document.createElement('script');
-    script.src = chrome.runtime.getURL('searchgazer.js');
-    document.head.appendChild(script);
+    console.log("Initializing EyeGestures...");
 
-    script.onload = function () {
-        console.log("SearchGazer Loaded. Initializing...");
-
-        webgazer.setTracker('TFFacemesh')
-            .setRegression('ridge')
-            .showVideoPreview(true)
-            .showFaceOverlay(true)
-            .showFaceFeedbackBox(true)
-            .showPredictionPoints(true)
-            .begin();
+    // Create video element for eye tracking
+    const video = document.createElement('video');
+    video.id = 'eyegestures-video';
+    video.style.position = 'fixed';
+    video.style.top = '10px';
+    video.style.right = '10px';
+    video.style.width = '320px';
+    video.style.height = '240px';
+    video.style.zIndex = '10000';
+    video.style.border = '2px solid #fff';
+    video.style.borderRadius = '8px';
+    video.autoplay = true;
+    document.body.appendChild(video);
 
         let gazeData = [];
+
 
         // Wait for element with polling inside shadow roots
         async function waitForElement(selector, root, timeout = 1000) {
@@ -42,6 +59,7 @@ console.log("Amazon Gaze Tracker Extension Loaded");
             });
         }
 
+        // Product details extraction (unchanged)
         async function getProductDetails(x, y) {
             const element = document.elementFromPoint(x, y);
             if (!element) return null;
@@ -231,6 +249,7 @@ console.log("Amazon Gaze Tracker Extension Loaded");
         });
         observer.observe(document.body, {childList: true, subtree: true});
 
+        // Gaze data recording (unchanged)
         async function recordGazeData(x, y, timeElapsed) {
             const productData = await getProductDetails(x, y);
             if (productData) {
@@ -253,21 +272,38 @@ console.log("Amazon Gaze Tracker Extension Loaded");
 
         console.log("Starting gaze data collection...");
 
-        const gazeCollectionInterval = setInterval(() => {
-            webgazer.getCurrentPrediction().then(async gaze => {
-                if (gaze) {
-                    await recordGazeData(gaze.x, gaze.y, performance.now());
-                }
-            }).catch(err => {
-                console.warn("Gaze prediction error:", err);
-            });
-        }, 500);
+        // const gazeCollectionInterval = setInterval(() => {
+        //     webgazer.getCurrentPrediction().then(async gaze => {
+        //         if (gaze) {
+        //             await recordGazeData(gaze.x, gaze.y, performance.now());
+        //         }
+        //     }).catch(err => {
+        //         console.warn("Gaze prediction error:", err);
+        //     });
+        // }, 500);
+
+
+        // Initialize EyeGestures with gaze callback
+        const gestures = new EyeGestures(video.id, (gaze, calibration) => {
+            if (gaze && gaze.x && gaze.y) {
+                recordGazeData(gaze.x, gaze.y, performance.now());
+            }
+        });
+
+        // Start eye tracking
+        gestures.start();
+        console.log("EyeGestures initialized and started");
 
         setTimeout(() => {
-            clearInterval(gazeCollectionInterval);
+            // ==== ORIGINAL SEARCHGAZER CLEANUP (COMMENTED OUT) ====
+            // clearInterval(gazeCollectionInterval);
+            
+            gestures.stop();
             console.log("Gaze tracking complete. Downloading data...");
             downloadCSV();
-        }, 30000);
+        }, 60000); //1min
+
+        // CSV export functions (unchanged)
 
         function escapeCSV(value){
             if (value == null) return "";
@@ -302,5 +338,4 @@ console.log("Amazon Gaze Tracker Extension Loaded");
             link.click();
             document.body.removeChild(link);
         }
-    };
 })();
