@@ -12,7 +12,7 @@
   "content_scripts": [
     {
       "matches": ["https://www.amazon.com/*"],
-      "js": ["searchgazer.js", "content.js"],
+      "js": ["searchgazer.js", "calibration.js","content.js"],
       "run_at": "document_idle"
     }
   ],
@@ -21,7 +21,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["searchgazer.js"],
+      "resources": ["searchgazer.js", "calibration.js"],
       "matches": ["<all_urls>"]
     }
   ],

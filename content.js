@@ -11,6 +11,20 @@ console.log("Amazon Gaze Tracker Extension Loaded");
     script.src = chrome.runtime.getURL('searchgazer.js');
     document.head.appendChild(script);
 
+    const calibrationScript = document.createElement("script");
+    calibrationScript.src = chrome.runtime.getURL("calibration.js");
+
+    calibrationScript.onload = () => {
+            console.log("Calibration script loaded.");
+            if (typeof window.startCalibration === "function") {
+                console.log("startCalibration() is available globally.");
+            } else {
+                console.warn("startCalibration() not found after loading calibration.js");
+            }
+        };
+
+        (document.head || document.documentElement).appendChild(calibrationScript);
+
     script.onload = function () {
         console.log("SearchGazer Loaded. Initializing...");
 
@@ -21,6 +35,35 @@ console.log("Amazon Gaze Tracker Extension Loaded");
             .showFaceFeedbackBox(true)
             .showPredictionPoints(true)
             .begin();
+
+            // Wait until webgazer (SearchGazer) is actually ready
+            let gazeReady = false;
+
+            async function waitForGazeReady() {
+              while (!window.webgazer || !window.webgazer.getCurrentPrediction) {
+                await new Promise(r => setTimeout(r, 200));
+              }
+              console.log("SearchGazer is now ready!");
+              gazeReady = true;
+            }
+            waitForGazeReady();
+
+            chrome.runtime.onMessage.addListener((message) => {
+                if (message.action === "startCalibration") {
+                    // Show confirmation dialog
+                    const start = confirm("Would you like to start the calibration process?");
+                    if (start) { // user clicked "OK"
+                        if (typeof window.startCalibration === "function") {
+                            console.log("Running calibration...");
+                            window.startCalibration();
+                        } else {
+                            console.error("Calibration function not found!");
+                        }
+                    } else {
+                        console.log("Calibration canceled by user.");
+                    }
+                }
+            });
 
         let gazeData = [];
 
@@ -257,10 +300,14 @@ console.log("Amazon Gaze Tracker Extension Loaded");
 
         const gazeCollectionInterval = setInterval(() => {
             webgazer.getCurrentPrediction().then(async gaze => {
-                if (gaze) {
-                    await recordGazeData(gaze.x, gaze.y, performance.now());
-                }
-            }).catch(err => {
+                   if (gaze) {
+                    // Apply calibration correction if available
+                    const calibrated = typeof window.getCalibratedPrediction === "function"
+                       ? window.getCalibratedPrediction(gaze)
+                       : gaze;
+                        await recordGazeData(calibrated.x, calibrated.y, performance.now());
+                    }
+                }).catch(err => {
                 console.warn("Gaze prediction error:", err);
             });
         }, 500);
